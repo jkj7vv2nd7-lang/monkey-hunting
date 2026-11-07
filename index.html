@@ -757,7 +757,7 @@ function buildLogSheet() {
   c.fillText('なまえ：', 110, 300);
   c.strokeStyle = '#999'; c.lineWidth = 3;
   c.beginPath(); c.moveTo(360, 306); c.lineTo(1400, 306); c.stroke();
-  const log = getLog().slice(0, 18);
+  const log = getLog().slice(0, 12);
   const cols = [110, 560, 1160, 1660];
   const colW = [450, 600, 500, Wd - 110 - 1660];
   const heads = ['条件', 'サルの動き・ねらい', '予想', '結果'];
@@ -768,6 +768,12 @@ function buildLogSheet() {
     c.fillStyle = '#2c3430'; c.textAlign = 'center'; c.fillText(h, cols[i] + colW[i] / 2, 440);
   });
   c.textAlign = 'left';
+  // 空の行も含めて12行分の罫をすべて描く（あまった行は手書きの記録欄として使える）
+  c.strokeStyle = '#cfe0c2'; c.lineWidth = 2.5;
+  for (let r = 0; r < 12; r++) {
+    const y = 472 + r * 158;
+    cols.forEach((x, i) => c.strokeRect(x, y, colW[i], 158));
+  }
   log.forEach((e, r) => {
     const y = 472 + r * 158;
     c.strokeStyle = '#cfe0c2'; c.lineWidth = 2.5;
@@ -785,6 +791,14 @@ function buildLogSheet() {
   if (!log.length) {
     c.fillStyle = '#6d7a68'; c.font = '48px sans-serif';
     c.fillText('（まだ記録がありません。アプリで発射すると記録されます）', 110, 620);
+  }
+  // 気づいたこと・考えたこと（手書き欄）
+  c.fillStyle = '#2c3430'; c.font = 'bold 46px sans-serif';
+  c.fillText('気づいたこと・考えたこと', 110, 2500);
+  c.strokeStyle = '#b9cdb0'; c.lineWidth = 2.5;
+  for (let i = 0; i < 8; i++) {
+    const y = 2596 + i * 96;
+    c.beginPath(); c.moveTo(110, y); c.lineTo(Wd - 110, y); c.stroke();
   }
   c.fillStyle = '#93a48c'; c.font = '42px sans-serif';
   c.fillText('弾もサルも、同じ時間に同じだけ落ちる。落ち方がそろうと、狙ったところに当たります。', 110, Hd - 90);
