@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>モンキーハンティング ― 狙ったところに当たるふしぎ</title>
+<meta name="description" content="木から落ちるサルに向けて真っ直ぐ狙うと当たる、古典的な力学のシミュレーター。弾もサルも重力で同じだけ落ちることを、スローモーションと軌跡で確かめられます。重力（なし・月・地球・木星）や初速・距離・高さを変えて実験できます。">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="モンキーハンティング">
+<meta property="og:title" content="モンキーハンティング ― 狙ったところに当たるふしぎ">
+<meta property="og:description" content="弾もサルも同じだけ落ちるから、真っ直ぐ狙えば当たる。古典力学の名場面を実験できるシミュレーター。">
+<meta property="og:type" content="website">
+<meta property="og:image" content="og-image.png">
+<style>
+  :root{
+    --ink:#2c3430; --paper:#f4f8ef; --card:#ffffff; --line:#d5e2c8;
+    --accent:#3e7d46; --accent2:#e07b39; --warn:#c94f6d; --sky:#bfe3f2;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:"Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic",sans-serif;
+    background:var(--paper); color:var(--ink); line-height:1.6;
+    padding:0 12px 48px;
+  }
+  .wrap{ max-width:820px; margin:0 auto; }
+  header{
+    text-align:center; padding:20px 4px 4px;
+  }
+  .logo{
+    display:inline-block; padding:10px 26px 12px; border-radius:20px; color:#fff;
+    background:linear-gradient(135deg,#2f6b3a 0%,#3e7d46 55%,#69a84f 100%);
+    box-shadow:0 4px 14px rgba(46,100,60,.35);
+  }
+  .logo h1{ margin:0; font-size:1.72rem; letter-spacing:.04em; text-shadow:0 2px 3px rgba(0,0,0,.25); }
+  .logo .sub{ margin:2px 0 0; font-size:.92rem; opacity:.95; }
+  .arc{ display:block; margin:8px auto 0; }
+  section.card{
+    background:var(--card); border:1.5px solid var(--line); border-radius:18px;
+    padding:14px 14px 16px; margin:14px 0;
+    box-shadow:0 2px 8px rgba(50,90,40,.07);
+  }
+  section.card h2{ font-size:1.12rem; margin:2px 0 8px; }
+  .note{ color:#6d7a68; font-size:.88rem; }
+  #scene{ width:100%; height:auto; display:block; border-radius:12px; background:linear-gradient(#a8d8f0,#dff3fb 70%,#eef9e8); border:1px solid var(--line); touch-action:none; }
+  .ctl{ display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; margin-top:10px; }
+  @media (max-width:560px){ .ctl{ grid-template-columns:1fr; } }
+  .ctl .row label{ font-weight:700; font-size:.95rem; display:flex; justify-content:space-between; }
+  .ctl .row label output{ color:var(--accent); font-weight:700; }
+  input[type=range]{ width:100%; accent-color:var(--accent); height:32px; }
+  .seg{ display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+  .seg button{
+    flex:1; min-width:64px; padding:9px 4px; font-size:.92rem; font-weight:700; border-radius:10px;
+    border:2px solid var(--line); background:#fff; color:var(--ink); cursor:pointer; font-family:inherit;
+  }
+  .seg button.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .seg.pred button.on{ background:var(--accent2); border-color:var(--accent2); }
+  .fire-row{ display:flex; gap:10px; align-items:stretch; margin-top:14px; flex-wrap:wrap; }
+  button.act{
+    padding:12px 20px; font-size:1.02rem; font-weight:700; border-radius:12px; border:none;
+    background:var(--accent); color:#fff; cursor:pointer; font-family:inherit;
+    box-shadow:0 2px 5px rgba(40,90,50,.3);
+  }
+  button.act.sub{ background:#fff; color:var(--ink); border:2px solid var(--line); box-shadow:none; }
+  button.act:disabled{ opacity:.45; cursor:default; box-shadow:none; }
+  #btn-fire{ flex:1; font-size:1.3rem; padding:14px; background:linear-gradient(135deg,#d96c2c,#e07b39); box-shadow:0 3px 8px rgba(200,110,40,.4); }
+  #result{
+    display:none; border-radius:12px; padding:12px 14px; margin-top:12px; font-weight:700; font-size:1.05rem;
+  }
+  #result.hit{ display:block; background:#e9f7e4; border:1.5px solid #9ed08a; }
+  #result.miss{ display:block; background:#fdeef1; border:1.5px solid #e5a3b4; }
+  #result .pred{ display:block; font-size:.9rem; font-weight:400; margin-top:2px; }
+  .readouts{ display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+  .readouts .box{ background:#f4f9f0; border:1.5px solid var(--line); border-radius:12px; padding:8px 6px; text-align:center; }
+  .readouts .box .k{ font-size:.8rem; color:#6d7a68; }
+  .readouts .box .v{ font-size:1.22rem; font-weight:700; color:var(--accent); }
+  .math{ font-family:"Times New Roman",Times,serif; font-size:1.12em; }
+  .math i{ font-style:italic; }
+  .frac{ display:inline-flex; flex-direction:column; text-align:center; vertical-align:middle; margin:0 .15em; }
+  .frac .num{ border-bottom:1.6px solid currentColor; padding:0 .25em; line-height:1.25; }
+  .frac .den{ padding:0 .25em; line-height:1.25; }
+  .formula{ background:#fbfdf8; border:1.5px solid var(--line); border-radius:12px; padding:10px 14px; margin:8px 0; overflow-x:auto; }
+  #loglist{ font-size:.9rem; }
+  #loglist .entry{ border-bottom:1px dashed var(--line); padding:6px 2px; }
+  #loglist .entry b{ color:var(--accent); }
+  #loglist .entry b.bad{ color:var(--warn); }
+  .column{ background:#eef6ea; border:1.5px solid #c4dcb6; border-radius:14px; padding:12px 14px; }
+  .column h3{ color:#2f6b3a; margin:10px 0 4px; }
+  .column h3:first-child{ margin-top:0; }
+  footer{ text-align:center; color:#93a48c; font-size:.82rem; margin-top:26px; }
+  footer a{ color:#2f6b3a; }
+  #bootwarn{ display:none; background:#fdeeda; border:1.5px solid var(--accent2); border-radius:12px; padding:12px 14px; margin:14px 0; font-size:.92rem; }
+</style>
+<script>
+  window.__mhBootTimer = setTimeout(function(){
+    var el = document.getElementById('bootwarn');
+    if (el && !window.__mhBooted) el.style.display = 'block';
+  }, 4000);
+</script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">
+      <h1>🐒 モンキーハンティング</h1>
+      <p class="sub">狙ったところに当たるふしぎ ― 弾もサルも、同じだけ落ちる</p>
+    </div>
+    <svg class="arc" width="300" height="46" viewBox="0 0 300 46" aria-hidden="true">
+      <path d="M 8 40 Q 150 -34 292 40" fill="none" stroke="#e07b39" stroke-width="3" stroke-dasharray="7 6"/>
+      <circle r="6" fill="#d64541">
+        <animateMotion dur="2.6s" repeatCount="indefinite" path="M 8 40 Q 150 -34 292 40"/>
+      </circle>
+    </svg>
+  </header>
+
+  <div id="bootwarn">アプリの読み込みに失敗したようです。ページを再読み込みしてみてください。それでも直らない場合は、ブラウザを変えてお試しください。</div>
+
+  <section class="card">
+    <canvas id="scene" width="960" height="560"></canvas>
+
+    <div class="ctl">
+      <div class="row">
+        <label>初速 <output id="o-v0">25 m/s</output></label>
+        <input type="range" id="s-v0" min="10" max="60" step="1" value="25">
+      </div>
+      <div class="row">
+        <label>距離（サルまで） <output id="o-L">20 m</output></label>
+        <input type="range" id="s-L" min="10" max="40" step="1" value="20">
+      </div>
+      <div class="row">
+        <label>高低差（サルの高さ） <output id="o-dH">10 m</output></label>
+        <input type="range" id="s-dH" min="5" max="20" step="1" value="10">
+      </div>
+      <div class="row" id="row-offset" style="display:none;">
+        <label>ねらいのずれ <output id="o-off">0.0°</output></label>
+        <input type="range" id="s-off" min="-5" max="5" step="0.5" value="0">
+      </div>
+      <div class="row">
+        <label>重力</label>
+        <div class="seg" id="seg-g">
+          <button type="button" data-g="0">なし</button>
+          <button type="button" data-g="1.6">月 1.6</button>
+          <button type="button" data-g="9.8" class="on">地球 9.8</button>
+          <button type="button" data-g="24.8">木星 24.8</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>サルの動き</label>
+        <div class="seg" id="seg-monkey">
+          <button type="button" data-m="drop" class="on">発射と同時に落ちる</button>
+          <button type="button" data-m="late">0.2秒おくれて落ちる</button>
+          <button type="button" data-m="hold">手を離さない</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>ねらい</label>
+        <div class="seg" id="seg-aim">
+          <button type="button" data-a="auto" class="on">サルに自動照準</button>
+          <button type="button" data-a="free">自由ねらい</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>再生速度</label>
+        <div class="seg" id="seg-speed">
+          <button type="button" data-s="0.1">0.1倍</button>
+          <button type="button" data-s="0.25" class="on">0.25倍</button>
+          <button type="button" data-s="0.5">0.5倍</button>
+          <button type="button" data-s="1">等速</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;">
+      <label style="font-weight:700;">まず予想しよう</label>
+      <div class="seg pred" id="seg-pred">
+        <button type="button" data-p="hit" class="on">当たる</button>
+        <button type="button" data-p="above">上を外れる</button>
+        <button type="button" data-p="below">下を外れる</button>
+        <button type="button" data-p="landed">サルが先に着地</button>
+      </div>
+    </div>
+
+    <div class="fire-row">
+      <button class="act" id="btn-fire" type="button">🔥 発射</button>
+      <button class="act sub" id="btn-pause" type="button" disabled>一時停止</button>
+      <button class="act sub" id="btn-step" type="button" disabled>コマ送り</button>
+      <button class="act sub" id="btn-reset" type="button">リセット</button>
+    </div>
+
+    <div id="result" role="status"></div>
+
+    <div class="readouts">
+      <div class="box"><div class="k">到達時間（目安）</div><div class="v" id="r-t">―</div></div>
+      <div class="box"><div class="k">その間の落下量 ½gt²</div><div class="v" id="r-drop">―</div></div>
+      <div class="box"><div class="k">出会う高さ（目安）</div><div class="v" id="r-y">―</div></div>
+    </div>
+    <p class="note">軌跡の印（●）は0.1秒ごとの位置です。ボールとサルの印を結ぶと、「同じ時間に同じだけ落ちた」ことが見えます。計算は放物運動の式そのもので行っているので、誤差はたまりません。</p>
+  </section>
+
+  <section class="card">
+    <h2>📐 数式で見ると</h2>
+    <div class="formula">
+      <span class="math">ボールの高さ： <i>y</i> = <i>x</i> tan<i>θ</i> − <span class="frac"><span class="num"><i>g</i><i>x</i><sup>2</sup></span><span class="den">2<i>v</i><sub>0</sub><sup>2</sup> cos<sup>2</sup><i>θ</i></span></span></span>
+    </div>
+    <div class="formula">
+      <span class="math">サルの高さ： <i>y</i> = <i>H</i> − <span class="frac"><span class="num">1</span><span class="den">2</span></span><i>g</i><i>t</i><sup>2</sup></span>
+    </div>
+    <p>ボールがサルの真下（<span class="math"><i>x</i> = <i>L</i></span>）に着くまでの時間 <span class="math"><i>t</i>*</span> の間に、ボールは狙いの直線から <span class="math"><span class="frac"><span class="num">1</span><span class="den">2</span></span><i>g</i><i>t</i>*<sup>2</sup></span> だけ下がり、サルもちょうど同じだけ落ちます。だから2つは、狙った場所よりその分だけ下で出会います。重力 <span class="math"><i>g</i></span> の値が変わっても、落ちる分が両方とも同じなので、結果は変わりません。</p>
+    <p class="note">θ は狙いの角度、v<sub>0</sub> は初速、H はサルの最初の高さ、L はサルまでの距離です。</p>
+  </section>
+
+  <section class="card">
+    <h2>📓 実験ノート</h2>
+    <div id="loglist"><p class="note">まだ記録がありません。発射すると、条件と結果がここに残ります。</p></div>
+    <div class="fire-row">
+      <button class="act sub" id="btn-share" type="button">記録シートを共有（印刷）</button>
+      <button class="act sub" id="btn-download" type="button">記録シートを保存</button>
+      <button class="act sub" id="btn-clearlog" type="button">記録を消す</button>
+    </div>
+    <p class="note">記録シートはA4判・縦向きです。右上の黒い線が実物でちょうど5cmになれば、正しい大きさで印刷できています。</p>
+  </section>
+
+  <section class="card">
+    <h2>📖 解説 ― なぜ当たるの？</h2>
+    <div class="column">
+      <h3>重力は、分けへだてなく同じだけ引く</h3>
+      <p>飛んでいるボールも、落ちるサルも、同じ重力に引かれています。同じ時間たてば、どちらも同じ長さだけ下へ移動します。真っ直ぐ狙ったボールの道は、狙いの直線よりも下を進みますが、サルも同じだけ落ちているので、2つは下がった場所で出会うのです。</p>
+      <h3>外れるのは、落ち方がそろわないとき</h3>
+      <p>サルが手を離さなければ、落ちるのはボールだけで、その分だけ下を外れます。サルの落ち始めが遅れても、落ちた分の差がそのまま外れ幅になります。初速が遅すぎると、ボールが着く前にサルが地面に着いてしまいます。「当たる」のは、落ち方がぴたりとそろっているからなのです。</p>
+      <h3>古典的な名問題</h3>
+      <p>モンキーハンティングは、物理の教科書や参考書に昔から載っている有名な問題です。水平の動きと落下の動きを分けて考える「放物運動」の考え方が、この1つの実験に詰まっています。同じ材料の絵本「数学の絵本 第21話『サルに当たる？ ― モンキーハンティングのおはなし』」も、<a href="https://jkj7vv2nd7-lang.github.io/math-picture-books/" target="_blank" rel="noopener">数学の絵本 Web版</a>で読めます。</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>モンキーハンティング・シミュレーター ― 放物運動と重力を実験するアプリです。<br>
+    不具合が出るかもしれません。実際にご使用の際に不具合がありましたら、紹介記事のコメント欄からお知らせください。</p>
+  </footer>
+</div>
+<script>
+'use strict';
+/* モンキーハンティング・シミュレーター
+   位置はすべて解析式で計算する（積分しないので誤差がたまらない）。
+   検証済みの物理：verify-physics.py（解析解とRK4の一致を確認） */
+const $ = id => document.getElementById(id);
+const GUN_Y = 1.2;          // 発射口の高さ (m)
+const MONKEY_R = 0.55;      // サルの体の半径＝当たり判定 (m)
+const cv = $('scene'), ctx = cv.getContext('2d');
+const W = cv.width, H = cv.height;
+
+const S = {
+  v0: 25, L: 20, dH: 10, g: 9.8,
+  monkey: 'drop',           // drop | late | hold
+  aim: 'auto', offset: 0,
+  speed: 0.25, pred: 'hit',
+  phase: 'aim',             // aim | flying | done
+  paused: false,
+  t: 0, outcome: null, pending: null,
+  monkeyLanded: false, landedAt: null, crossDy: null, meetY: null,
+  confetti: [], score: 0, shots: 0
+};
+
+function theta() {
+  const base = Math.atan2(S.dH, S.L);
+  return base + (S.aim === 'free' ? S.offset * Math.PI / 180 : 0);
+}
+function monkeyY0() { return GUN_Y + S.dH; }
+function ballPos(t) {
+  const th = theta();
+  return {
+    x: S.v0 * Math.cos(th) * t,
+    y: GUN_Y + S.v0 * Math.sin(th) * t - 0.5 * S.g * t * t
+  };
+}
+function monkeyDelay() { return S.monkey === 'late' ? 0.2 : 0; }
+function monkeyPos(t) {
+  const y0 = monkeyY0();
+  if (S.monkey === 'hold' || S.g === 0) return { x: S.L, y: y0 };
+  const te = Math.max(0, t - monkeyDelay());
+  const y = y0 - 0.5 * S.g * te * te;
+  if (y <= MONKEY_R) {
+    if (!S.monkeyLanded) { S.monkeyLanded = true; S.landedAt = t; }
+    return { x: S.L, y: MONKEY_R };
+  }
+  return { x: S.L, y: y };
+}
+function tCross() { return S.L / (S.v0 * Math.cos(theta())); }
+
+/* ---------- 描画 ---------- */
+function view() {
+  const th = theta();
+  let top = monkeyY0() + 3.2;
+  if (S.g > 0) {
+    const apex = GUN_Y + Math.pow(S.v0 * Math.sin(th), 2) / (2 * S.g);
+    top = Math.max(top, Math.min(apex + 1.5, monkeyY0() + 14));
+  }
+  const worldW = S.L + 9, worldH = top + 1.2;
+  const scale = Math.min((W - 56) / worldW, (H - 66) / worldH);
+  return { scale, x0: 34, gy: H - 44, top };
+}
+function draw() {
+  const v = view();
+  const sx = x => v.x0 + x * v.scale;
+  const sy = y => v.gy - y * v.scale;
+  ctx.clearRect(0, 0, W, H);
+  // 空
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#a8d8f0'); grad.addColorStop(0.72, '#dff3fb'); grad.addColorStop(1, '#eef9e8');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+  // 遠くの丘
+  ctx.fillStyle = 'rgba(140,190,130,.45)';
+  ctx.beginPath(); ctx.moveTo(0, sy(0));
+  for (let x = 0; x <= W; x += 16) ctx.lineTo(x, sy(0) - 26 - 16 * Math.sin(x * 0.011 + 2));
+  ctx.lineTo(W, sy(0)); ctx.closePath(); ctx.fill();
+  // 地面
+  ctx.fillStyle = '#8fce6e'; ctx.fillRect(0, sy(0), W, H - sy(0));
+  ctx.fillStyle = '#7a5c38'; ctx.fillRect(0, sy(0), W, 5);
+  ctx.fillStyle = 'rgba(90,70,40,.55)'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  for (let m = 0; m <= S.L + 5; m += 5) {
+    ctx.fillRect(sx(m) - 1, sy(0) + 6, 2, 7);
+    ctx.fillText(m + 'm', sx(m), sy(0) + 30);
+  }
+  // 木
+  const branchY = monkeyY0() + 1.15;
+  ctx.strokeStyle = '#7a5c38'; ctx.lineWidth = Math.max(5, 0.42 * v.scale); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(sx(S.L + 2.6), sy(0)); ctx.quadraticCurveTo(sx(S.L + 2.2), sy(branchY * 0.55), sx(S.L + 1.7), sy(branchY)); ctx.stroke();
+  ctx.lineWidth = Math.max(4, 0.3 * v.scale);
+  ctx.beginPath(); ctx.moveTo(sx(S.L + 1.7), sy(branchY)); ctx.lineTo(sx(S.L - 1.1), sy(branchY)); ctx.stroke();
+  ctx.fillStyle = '#5da24e';
+  [[S.L + 2.4, branchY + 0.9, 1.9], [S.L + 0.6, branchY + 1.15, 1.6], [S.L - 0.9, branchY + 0.8, 1.3], [S.L + 3.4, branchY + 0.4, 1.4]].forEach(c => {
+    ctx.beginPath(); ctx.arc(sx(c[0]), sy(c[1]), c[2] * v.scale * 0.62, 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.lineCap = 'butt';
+  // 狙いの直線（照準中と飛行中のはじめ）
+  const th = theta();
+  if (S.phase !== 'done') {
+    ctx.strokeStyle = 'rgba(214,69,65,.65)'; ctx.lineWidth = 2; ctx.setLineDash([8, 7]);
+    ctx.beginPath();
+    ctx.moveTo(sx(0), sy(GUN_Y));
+    ctx.lineTo(sx(Math.cos(th) * (Math.hypot(S.L, S.dH) + 1.6)), sy(GUN_Y + Math.sin(th) * (Math.hypot(S.L, S.dH) + 1.6)));
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  const tNow = S.t;
+  const mon = monkeyPos(tNow);
+  // サルの落下軌跡と同時刻ドット
+  if (S.phase !== 'aim') {
+    ctx.strokeStyle = 'rgba(47,111,208,.35)'; ctx.lineWidth = 2; ctx.setLineDash([4, 6]);
+    ctx.beginPath(); ctx.moveTo(sx(S.L), sy(monkeyY0())); ctx.lineTo(sx(S.L), sy(mon.y)); ctx.stroke();
+    ctx.setLineDash([]);
+    const tEnd = tNow;
+    for (let tk = 0.1; tk <= tEnd + 1e-9; tk += 0.1) {
+      const b = ballPos(tk);
+      const m = monkeyPos(Math.min(tk, tEnd));
+      if (b.y < 0) continue;
+      ctx.strokeStyle = 'rgba(120,120,120,.35)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(sx(b.x), sy(b.y)); ctx.lineTo(sx(m.x), sy(m.y)); ctx.stroke();
+      ctx.fillStyle = '#e07b39';
+      ctx.beginPath(); ctx.arc(sx(b.x), sy(b.y), 4.2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2f6fd0';
+      ctx.beginPath(); ctx.arc(sx(m.x), sy(m.y), 4.2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  // ボールの軌跡
+  if (S.phase !== 'aim') {
+    ctx.strokeStyle = '#d64541'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    const steps = 90;
+    for (let i = 0; i <= steps; i++) {
+      const tt = tNow * i / steps;
+      const b = ballPos(tt);
+      if (b.y < 0.02 && i > 0) break;
+      if (i === 0) ctx.moveTo(sx(b.x), sy(b.y)); else ctx.lineTo(sx(b.x), sy(b.y));
+    }
+    ctx.stroke();
+  }
+  // 落下量の矢印（終了時）
+  if (S.phase === 'done' && S.outcome && (S.outcome.type === 'hit' || S.crossDy !== null)) {
+    const dropB = monkeyY0() - (S.outcome.type === 'hit' ? S.meetY : ballPos(tCross()).y);
+    const dropM = monkeyY0() - mon.y;
+    ctx.lineWidth = 2.4;
+    const arrow = (x, yTop, yBot, color, label) => {
+      if (Math.abs(yTop - yBot) < 0.05) return;
+      ctx.strokeStyle = color; ctx.fillStyle = color;
+      ctx.beginPath(); ctx.moveTo(sx(x), sy(yTop)); ctx.lineTo(sx(x), sy(yBot)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx(x) - 5, sy(yBot) + 8); ctx.lineTo(sx(x) + 5, sy(yBot) + 8); ctx.lineTo(sx(x), sy(yBot)); ctx.closePath(); ctx.fill();
+      ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(label, sx(x), sy(yBot) + 24);
+    };
+    arrow(S.L - 1.15, monkeyY0(), monkeyY0() - dropB, '#d64541', 'ボール ' + dropB.toFixed(2) + 'm');
+    arrow(S.L + 1.3, monkeyY0(), mon.y, '#2f6fd0', 'サル ' + dropM.toFixed(2) + 'm');
+  }
+  // 発射台
+  ctx.fillStyle = '#5b6670';
+  ctx.fillRect(sx(-0.9), sy(0.95), 1.7 * v.scale, 0.95 * v.scale);
+  ctx.save();
+  ctx.translate(sx(0), sy(GUN_Y)); ctx.rotate(-th);
+  ctx.fillStyle = '#37414a';
+  ctx.fillRect(0, -0.16 * v.scale, 1.7 * v.scale, 0.32 * v.scale);
+  ctx.restore();
+  ctx.fillStyle = '#37414a';
+  ctx.beginPath(); ctx.arc(sx(0), sy(GUN_Y), 0.22 * v.scale, 0, Math.PI * 2); ctx.fill();
+  // サル
+  const pose = S.phase === 'done' && S.outcome && S.outcome.type === 'hit' ? 'hit'
+    : (S.monkeyLanded ? 'sit' : (S.phase === 'aim' || S.monkey === 'hold' || mon.y >= monkeyY0() - 0.01 ? 'hang' : 'fall'));
+  if (pose === 'hang') {
+    ctx.strokeStyle = '#8a6f66'; ctx.lineWidth = 2.4;
+    ctx.beginPath(); ctx.moveTo(sx(S.L), sy(branchY)); ctx.lineTo(sx(S.L), sy(mon.y + MONKEY_R * 0.95)); ctx.stroke();
+  }
+  drawMonkey(sx(mon.x), sy(mon.y), MONKEY_R * v.scale, pose);
+  // ボール
+  if (S.phase !== 'aim') {
+    const b = ballPos(Math.min(tNow, S.tEnd || tNow));
+    if (!(S.phase === 'done' && S.outcome && S.outcome.type === 'hit')) {
+      ctx.fillStyle = '#d64541';
+      ctx.beginPath(); ctx.arc(sx(b.x), sy(Math.max(b.y, 0.12)), 0.3 * v.scale, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.5)';
+      ctx.beginPath(); ctx.arc(sx(b.x) - 0.09 * v.scale, sy(Math.max(b.y, 0.12)) - 0.09 * v.scale, 0.1 * v.scale, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  // 紙吹雪
+  S.confetti = S.confetti.filter(p => p.life > 0);
+  for (const p of S.confetti) {
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    ctx.fillStyle = p.color; ctx.globalAlpha = Math.min(1, p.life);
+    ctx.fillRect(-4, -2.5, 8, 5); ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+function drawMonkey(cx, cy, r, pose) {
+  ctx.save(); ctx.translate(cx, cy);
+  // しっぽ
+  ctx.strokeStyle = '#8a6f4d'; ctx.lineWidth = r * 0.16; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(r * 0.8, r * 0.4); ctx.quadraticCurveTo(r * 1.7, r * 0.7, r * 1.45, -r * 0.3); ctx.stroke();
+  // 腕
+  ctx.strokeStyle = '#a5825c'; ctx.lineWidth = r * 0.24;
+  if (pose === 'hang') {
+    ctx.beginPath(); ctx.moveTo(-r * 0.5, -r * 0.5); ctx.lineTo(-r * 0.35, -r * 1.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r * 0.6, -r * 0.4); ctx.lineTo(r * 0.95, r * 0.15); ctx.stroke();
+  } else if (pose === 'fall') {
+    ctx.beginPath(); ctx.moveTo(-r * 0.6, -r * 0.3); ctx.lineTo(-r * 1.25, -r * 0.75); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r * 0.6, -r * 0.3); ctx.lineTo(r * 1.25, -r * 0.75); ctx.stroke();
+  } else if (pose === 'hit') {
+    ctx.beginPath(); ctx.moveTo(-r * 0.6, -r * 0.3); ctx.lineTo(-r * 1.1, -r * 1.05); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r * 0.6, -r * 0.3); ctx.lineTo(r * 1.1, -r * 1.05); ctx.stroke();
+    // ボール（キャッチ）
+    ctx.fillStyle = '#d64541'; ctx.beginPath(); ctx.arc(0, -r * 1.12, r * 0.34, 0, Math.PI * 2); ctx.fill();
+    // バナナ
+    ctx.fillStyle = '#f7cf3f';
+    ctx.beginPath(); ctx.arc(-r * 1.5, r * 0.95, r * 0.36, Math.PI * 0.15, Math.PI * 0.95); ctx.lineTo(-r * 1.5, r * 0.95); ctx.closePath(); ctx.fill();
+    // 星
+    ctx.fillStyle = '#ffb703';
+    [[-r * 1.4, -r * 1.3], [r * 1.5, -r * 0.9], [0, -r * 1.8]].forEach(p => star(p[0], p[1], r * 0.22));
+  } else { // sit
+    ctx.beginPath(); ctx.moveTo(-r * 0.6, 0); ctx.lineTo(-r * 1.15, r * 0.35); ctx.stroke();
+    const w = Math.sin(performance.now() / 280) * 0.35;
+    ctx.beginPath(); ctx.moveTo(r * 0.6, -r * 0.2); ctx.lineTo(r * (1.05 + w * 0.3), -r * (0.95 - w * 0.2)); ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
+  // 体
+  ctx.fillStyle = '#a5825c';
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#e8d3ae';
+  ctx.beginPath(); ctx.arc(0, r * 0.28, r * 0.58, 0, Math.PI * 2); ctx.fill();
+  // 耳
+  ctx.fillStyle = '#a5825c';
+  ctx.beginPath(); ctx.arc(-r * 0.82, -r * 0.55, r * 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r * 0.82, -r * 0.55, r * 0.3, 0, Math.PI * 2); ctx.fill();
+  // 顔
+  ctx.fillStyle = '#f2e2c4';
+  ctx.beginPath(); ctx.arc(0, -r * 0.38, r * 0.52, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#2c3430';
+  const blink = pose === 'hit' ? 0.15 : 1;
+  ctx.beginPath(); ctx.ellipse(-r * 0.2, -r * 0.45, r * 0.07, r * 0.09 * blink, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(r * 0.2, -r * 0.45, r * 0.07, r * 0.09 * blink, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#2c3430'; ctx.lineWidth = r * 0.06;
+  ctx.beginPath();
+  if (pose === 'hit') ctx.arc(0, -r * 0.28, r * 0.22, 0.15 * Math.PI, 0.85 * Math.PI);
+  else if (pose === 'fall') { ctx.arc(0, -r * 0.12, r * 0.1, 0, Math.PI * 2); }
+  else ctx.arc(0, -r * 0.32, r * 0.18, 0.2 * Math.PI, 0.8 * Math.PI);
+  ctx.stroke();
+  ctx.restore();
+}
+function star(x, y, r) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r;
+    const px = x + Math.cos(a) * rr, py = y + Math.sin(a) * rr;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
+  ctx.closePath(); ctx.fill();
+}
+</script>
+<script>
+'use strict';
+/* ---------- 音 ---------- */
+let AC = null;
+function beep(freq, t0, dur, type, gain, slideTo) {
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || 'sine'; o.frequency.setValueAtTime(freq, AC.currentTime + t0);
+    if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, AC.currentTime + t0 + dur);
+    g.gain.setValueAtTime(gain || 0.12, AC.currentTime + t0);
+    g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + t0 + dur);
+    o.connect(g); g.connect(AC.destination);
+    o.start(AC.currentTime + t0); o.stop(AC.currentTime + t0 + dur);
+  } catch (e) { /* 音が出ない環境では無視 */ }
+}
+const sndFire = () => beep(320, 0, 0.18, 'sawtooth', 0.08, 70);
+const sndHit = () => { beep(659, 0, 0.14); beep(880, 0.12, 0.14); beep(1318, 0.24, 0.3); };
+const sndMiss = () => beep(300, 0, 0.3, 'sine', 0.1, 140);
+const sndLand = () => beep(95, 0, 0.16, 'square', 0.1);
+
+/* ---------- シミュレーション ---------- */
+let lastTs = null;
+function frame(ts) {
+  if (lastTs === null) lastTs = ts;
+  const dtReal = Math.min(0.05, (ts - lastTs) / 1000);
+  lastTs = ts;
+  if (S.phase === 'flying' && !S.paused) {
+    let remaining = dtReal * S.speed;
+    while (remaining > 0 && S.phase === 'flying') {
+      const step = Math.min(0.002, remaining);
+      stepSim(step);
+      remaining -= step;
+    }
+  }
+  // 紙吹雪の更新
+  const v = view();
+  for (const p of S.confetti) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.rot += p.vr; p.life -= 0.012;
+  }
+  draw();
+  requestAnimationFrame(frame);
+}
+function stepSim(dt) {
+  const prevX = ballPos(S.t).x;
+  S.t += dt;
+  const b = ballPos(S.t);
+  const m = monkeyPos(S.t);
+  if (S.monkeyLanded && S.phase === 'flying' && !S._landSnd) { S._landSnd = true; sndLand(); }
+  if (S.outcome) return;
+  const dist = Math.hypot(b.x - m.x, b.y - m.y);
+  if (dist <= MONKEY_R) {
+    S.meetY = m.y;
+    finish({ type: 'hit' });
+    return;
+  }
+  if (prevX < S.L && b.x >= S.L) {
+    S.crossDy = b.y - m.y;
+    S.pending = S.crossDy >= 0 ? { type: 'above', dy: S.crossDy } : { type: 'below', dy: -S.crossDy };
+  }
+  if (b.y <= 0.08) {
+    S.tEnd = S.t;
+    if (S.pending) finish(S.pending);
+    else if (S.monkeyLanded) finish({ type: 'landed' });
+    else finish({ type: 'short' });
+    return;
+  }
+  if (b.x > S.L + 20 || S.t > 12) {
+    S.tEnd = S.t;
+    if (S.pending) finish(S.pending);
+    else finish({ type: 'short' });
+  }
+}
+function finish(outcome) {
+  S.outcome = outcome;
+  S.phase = 'done';
+  S.tEnd = S.t;
+  S.shots++;
+  $('btn-pause').disabled = true;
+  $('btn-step').disabled = true;
+  const cat = outcome.type === 'short' ? 'below' : outcome.type;
+  const correct = S.pred === cat;
+  if (correct) S.score++;
+  const res = $('result');
+  let msg = '', cls = 'miss';
+  if (outcome.type === 'hit') {
+    cls = 'hit';
+    const drop = monkeyY0() - S.meetY;
+    msg = '🎯 当たり！ サルもボールも ' + drop.toFixed(2) + 'm 落ちたところで出会いました。サルはボールを受け止めて、バナナを落としました。';
+    sndHit();
+    spawnConfetti();
+  } else if (outcome.type === 'above') {
+    msg = '💨 外れ。ボールはサルの ' + outcome.dy.toFixed(2) + 'm 上を通り過ぎました。';
+    sndMiss();
+  } else if (outcome.type === 'below') {
+    msg = '💨 外れ。ボールはサルの ' + outcome.dy.toFixed(2) + 'm 下を通り過ぎました。';
+    sndMiss();
+  } else if (outcome.type === 'landed') {
+    msg = '🐒 サルが先に地面に着きました。ボールの到着が遅すぎました（初速の下限を下回っています）。';
+    sndMiss();
+  } else {
+    msg = '💨 ボールは手前に落ちて、サルまで届きませんでした。';
+    sndMiss();
+  }
+  res.className = cls;
+  res.innerHTML = msg + '<span class="pred">予想は「' + predLabel(S.pred) + '」→ ' +
+    (correct ? '⭕ 的中！' : '❌ はずれ') + '（通算 ' + S.shots + ' 回中 ' + S.score + ' 回的中）</span>';
+  addLog(outcome, correct);
+  updateReadouts(true);
+}
+function spawnConfetti() {
+  const v = view();
+  const cx = v.x0 + S.L * v.scale, cy = v.gy - (S.meetY || monkeyY0()) * v.scale;
+  const colors = ['#e07b39', '#3e7d46', '#d64541', '#2f6fd0', '#f7cf3f'];
+  for (let i = 0; i < 90; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 4.2;
+    S.confetti.push({
+      x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 2.2,
+      rot: Math.random() * 6.3, vr: (Math.random() - 0.5) * 0.3,
+      color: colors[i % colors.length], life: 1
+    });
+  }
+}
+function predLabel(p) {
+  return { hit: '当たる', above: '上を外れる', below: '下を外れる', landed: 'サルが先に着地' }[p];
+}
+function outcomeLabel(o) {
+  if (o.type === 'hit') return '当たった';
+  if (o.type === 'above') return '上を外れた（' + o.dy.toFixed(2) + 'm）';
+  if (o.type === 'below') return '下を外れた（' + o.dy.toFixed(2) + 'm）';
+  if (o.type === 'landed') return 'サルが先に着地';
+  return '手前に落ちた';
+}
+
+/* ---------- 操作 ---------- */
+function reset() {
+  S.phase = 'aim'; S.paused = false; S.t = 0; S.tEnd = null;
+  S.outcome = null; S.pending = null; S.crossDy = null; S.meetY = null;
+  S.monkeyLanded = false; S.landedAt = null; S._landSnd = false; S.confetti = [];
+  $('result').className = ''; $('result').innerHTML = '';
+  $('btn-pause').disabled = true; $('btn-step').disabled = true;
+  $('btn-pause').textContent = '一時停止';
+  updateReadouts(false);
+  draw();
+}
+function fire() {
+  if (S.phase === 'flying') return;
+  reset();
+  S.phase = 'flying';
+  $('btn-pause').disabled = false;
+  $('btn-step').disabled = false;
+  sndFire();
+}
+function updateReadouts(final) {
+  const tc = tCross();
+  const drop = 0.5 * S.g * tc * tc;
+  $('r-t').textContent = tc.toFixed(2) + ' 秒';
+  $('r-drop').textContent = S.g === 0 ? '0 m（重力なし）' : drop.toFixed(2) + ' m';
+  if (S.monkey === 'hold') $('r-y').textContent = '―（サルは落ちない）';
+  else if (S.g === 0) $('r-y').textContent = monkeyY0().toFixed(1) + ' m（浮いたまま）';
+  else {
+    const y = monkeyY0() - drop;
+    $('r-y').textContent = y >= MONKEY_R ? y.toFixed(2) + ' m' : '地面より下（届かない）';
+  }
+}
+function segWire(id, attr, fn) {
+  $(id).querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => {
+      $(id).querySelectorAll('button').forEach(x => x.classList.remove('on'));
+      b.classList.add('on');
+      fn(b.dataset[attr]);
+      if (S.phase !== 'flying') reset();
+    });
+  });
+}
+function initControls() {
+  const bind = (slider, out, fmt, apply) => {
+    $(slider).addEventListener('input', e => {
+      const val = parseFloat(e.target.value);
+      apply(val); $(out).textContent = fmt(val);
+      if (S.phase !== 'flying') reset();
+    });
+  };
+  bind('s-v0', 'o-v0', v => v + ' m/s', v => S.v0 = v);
+  bind('s-L', 'o-L', v => v + ' m', v => S.L = v);
+  bind('s-dH', 'o-dH', v => v + ' m', v => S.dH = v);
+  bind('s-off', 'o-off', v => v.toFixed(1) + '°', v => S.offset = v);
+  segWire('seg-g', 'g', v => S.g = parseFloat(v));
+  segWire('seg-monkey', 'm', v => S.monkey = v);
+  segWire('seg-aim', 'a', v => {
+    S.aim = v;
+    $('row-offset').style.display = v === 'free' ? '' : 'none';
+  });
+  segWire('seg-speed', 's', v => S.speed = parseFloat(v));
+  segWire('seg-pred', 'p', v => S.pred = v);
+  $('btn-fire').addEventListener('click', fire);
+  $('btn-reset').addEventListener('click', reset);
+  $('btn-pause').addEventListener('click', () => {
+    if (S.phase !== 'flying') return;
+    S.paused = !S.paused;
+    $('btn-pause').textContent = S.paused ? '再開' : '一時停止';
+  });
+  $('btn-step').addEventListener('click', () => {
+    if (S.phase !== 'flying') return;
+    S.paused = true; $('btn-pause').textContent = '再開';
+    let rem = 0.05;
+    while (rem > 0 && S.phase === 'flying') { const st = Math.min(0.002, rem); stepSim(st); rem -= st; }
+    draw();
+  });
+}
+
+/* ---------- 実験ノート ---------- */
+const LOG_KEY = 'monkey-hunting-log';
+function getLog() {
+  try { return JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch (e) { return []; }
+}
+function gLabel(g) { return g === 0 ? 'なし' : g === 1.6 ? '月' : g === 9.8 ? '地球' : g === 24.8 ? '木星' : String(g); }
+function addLog(outcome, correct) {
+  const log = getLog();
+  log.unshift({
+    at: new Date().toLocaleString('ja-JP'),
+    L: S.L, dH: S.dH, v0: S.v0, g: S.g, monkey: S.monkey,
+    aim: S.aim === 'free' ? ('ずれ ' + S.offset.toFixed(1) + '°') : '自動照準',
+    pred: S.pred, result: outcomeLabel(outcome), correct: correct
+  });
+  try { localStorage.setItem(LOG_KEY, JSON.stringify(log.slice(0, 60))); } catch (e) { /* 保存できない環境では無視 */ }
+  renderLog();
+}
+function monkeyLabel(m) { return { drop: '同時に落ちる', late: '0.2秒おくれ', hold: '手を離さない' }[m]; }
+function renderLog() {
+  const log = getLog();
+  const box = $('loglist');
+  if (!log.length) {
+    box.innerHTML = '<p class="note">まだ記録がありません。発射すると、条件と結果がここに残ります。</p>';
+    return;
+  }
+  box.innerHTML = log.slice(0, 12).map(e =>
+    '<div class="entry">' + e.at + ' ― 距離' + e.L + 'm・高低差' + e.dH + 'm・初速' + e.v0 + 'm/s・重力' + gLabel(e.g) +
+    '・サル：' + monkeyLabel(e.monkey) + '・' + e.aim +
+    '<br>予想「' + predLabel(e.pred) + '」→ 結果：<b class="' + (e.correct ? '' : 'bad') + '">' + e.result + '</b>' +
+    (e.correct ? '（的中）' : '') + '</div>'
+  ).join('');
+}
+
+/* ---------- 記録シート（A4縦・300dpi） ---------- */
+function buildLogSheet() {
+  const cvv = document.createElement('canvas');
+  cvv.width = 2480; cvv.height = 3508;
+  const c = cvv.getContext('2d');
+  const Wd = 2480, Hd = 3508;
+  c.fillStyle = '#fff'; c.fillRect(0, 0, Wd, Hd);
+  c.fillStyle = '#2c3430'; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+  c.font = 'bold 76px sans-serif';
+  c.fillText('モンキーハンティング ― 実験の記録', 110, 160);
+  // 5cm較正線
+  const calX = Wd - 110 - 591, calY = 118;
+  c.strokeStyle = '#000'; c.lineWidth = 10;
+  c.beginPath(); c.moveTo(calX, calY); c.lineTo(calX + 591, calY); c.stroke();
+  c.beginPath(); c.moveTo(calX, calY - 26); c.lineTo(calX, calY + 26); c.moveTo(calX + 591, calY - 26); c.lineTo(calX + 591, calY + 26); c.stroke();
+  c.font = 'bold 52px sans-serif'; c.textAlign = 'center';
+  c.fillText('5cm', calX + 295, calY - 40);
+  c.textAlign = 'left';
+  c.font = '50px sans-serif';
+  c.fillText('なまえ：', 110, 300);
+  c.strokeStyle = '#999'; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(360, 306); c.lineTo(1400, 306); c.stroke();
+  const log = getLog().slice(0, 18);
+  const cols = [110, 560, 1160, 1660];
+  const colW = [450, 600, 500, Wd - 110 - 1660];
+  const heads = ['条件', 'サルの動き・ねらい', '予想', '結果'];
+  c.font = 'bold 44px sans-serif';
+  heads.forEach((h, i) => {
+    c.fillStyle = '#eef6ea'; c.fillRect(cols[i], 380, colW[i], 92);
+    c.strokeStyle = '#b9cdb0'; c.lineWidth = 3; c.strokeRect(cols[i], 380, colW[i], 92);
+    c.fillStyle = '#2c3430'; c.textAlign = 'center'; c.fillText(h, cols[i] + colW[i] / 2, 440);
+  });
+  c.textAlign = 'left';
+  log.forEach((e, r) => {
+    const y = 472 + r * 158;
+    c.strokeStyle = '#cfe0c2'; c.lineWidth = 2.5;
+    cols.forEach((x, i) => c.strokeRect(x, y, colW[i], 158));
+    c.fillStyle = '#2c3430'; c.font = '42px sans-serif';
+    c.fillText('距離' + e.L + 'm 高低差' + e.dH + 'm', cols[0] + 16, y + 58);
+    c.fillText('初速' + e.v0 + 'm/s 重力' + gLabel(e.g), cols[0] + 16, y + 116);
+    c.fillText(monkeyLabel(e.monkey), cols[1] + 16, y + 58);
+    c.fillText(e.aim, cols[1] + 16, y + 116);
+    c.fillText(predLabel(e.pred), cols[2] + 16, y + 92);
+    c.font = 'bold 42px sans-serif';
+    c.fillText(e.result, cols[3] + 16, y + 92);
+    c.font = '42px sans-serif';
+  });
+  if (!log.length) {
+    c.fillStyle = '#6d7a68'; c.font = '48px sans-serif';
+    c.fillText('（まだ記録がありません。アプリで発射すると記録されます）', 110, 620);
+  }
+  c.fillStyle = '#93a48c'; c.font = '42px sans-serif';
+  c.fillText('弾もサルも、同じ時間に同じだけ落ちる。落ち方がそろうと、狙ったところに当たります。', 110, Hd - 90);
+  return cvv;
+}
+function initLogButtons() {
+  $('btn-clearlog').addEventListener('click', () => {
+    if (confirm('実験ノートの記録をすべて消しますか？')) {
+      try { localStorage.removeItem(LOG_KEY); } catch (e) { /* 無視 */ }
+      renderLog();
+    }
+  });
+  $('btn-download').addEventListener('click', () => {
+    buildLogSheet().toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'monkey-hunting-record-A4.png';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    });
+  });
+  $('btn-share').addEventListener('click', () => {
+    buildLogSheet().toBlob(async blob => {
+      const file = new File([blob], 'monkey-hunting-record-A4.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file] }); } catch (e) { /* キャンセル時は何もしない */ }
+      } else {
+        alert('この機械では共有が使えないため、「記録シートを保存」から保存して印刷してください。');
+      }
+    });
+  });
+}
+
+/* ---------- 起動 ---------- */
+function init() {
+  initControls();
+  initLogButtons();
+  renderLog();
+  reset();
+  window.__mhBooted = true;
+  requestAnimationFrame(frame);
+}
+document.addEventListener('DOMContentLoaded', init);
+
+/* テスト用フック */
+window.__mh = {
+  S, fire, reset, ballPos, monkeyPos, tCross,
+  set: o => { Object.assign(S, o); reset(); },
+  runToEnd: () => {
+    let guard = 0;
+    while (S.phase === 'flying' && guard++ < 20000) stepSim(0.002);
+    return S.outcome;
+  }
+};
+</script>
+</body>
+</html>
