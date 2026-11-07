@@ -37,6 +37,9 @@
   .logo h1{ margin:0; font-size:1.72rem; letter-spacing:.04em; text-shadow:0 2px 3px rgba(0,0,0,.25); }
   .logo .sub{ margin:2px 0 0; font-size:.92rem; opacity:.95; }
   .arc{ display:block; margin:8px auto 0; }
+  #titleAnim{ width:100%; height:auto; display:block; border-radius:12px; }
+  .sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  #scene{ scroll-margin-top:10px; }
   section.card{
     background:var(--card); border:1.5px solid var(--line); border-radius:18px;
     padding:14px 14px 16px; margin:14px 0;
@@ -103,22 +106,30 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="logo">
-      <h1>🐒 モンキーハンティング</h1>
-      <p class="sub">狙ったところに当たるふしぎ ― 弾もサルも、同じだけ落ちる</p>
-    </div>
-    <svg class="arc" width="300" height="46" viewBox="0 0 300 46" aria-hidden="true">
-      <path d="M 8 40 Q 150 -34 292 40" fill="none" stroke="#e07b39" stroke-width="3" stroke-dasharray="7 6"/>
-      <circle r="6" fill="#d64541">
-        <animateMotion dur="2.6s" repeatCount="indefinite" path="M 8 40 Q 150 -34 292 40"/>
-      </circle>
-    </svg>
+    <h1 class="sr-only">モンキーハンティング ― 狙ったところに当たるふしぎ</h1>
+    <canvas id="titleAnim" width="960" height="300" role="img" aria-label="モンキーハンティングのタイトル看板。ボールとサルが同じだけ落ちて出会うアニメーション"></canvas>
   </header>
 
   <div id="bootwarn">アプリの読み込みに失敗したようです。ページを再読み込みしてみてください。それでも直らない場合は、ブラウザを変えてお試しください。</div>
 
   <section class="card">
     <canvas id="scene" width="960" height="560"></canvas>
+
+    <div class="fire-row">
+      <button class="act" id="btn-fire" type="button">🔥 発射</button>
+      <button class="act sub" id="btn-pause" type="button" disabled>一時停止</button>
+      <button class="act sub" id="btn-step" type="button" disabled>コマ送り</button>
+      <button class="act sub" id="btn-reset" type="button">リセット</button>
+    </div>
+
+    <div id="result" role="status"></div>
+
+    <div class="readouts">
+      <div class="box"><div class="k">到達時間（目安）</div><div class="v" id="r-t">―</div></div>
+      <div class="box"><div class="k">その間の落下量 ½gt²</div><div class="v" id="r-drop">―</div></div>
+      <div class="box"><div class="k">出会う高さ（目安）</div><div class="v" id="r-y">―</div></div>
+    </div>
+    <p class="note">軌跡の印（●）は0.1秒ごとの位置です。ボールとサルの印を結ぶと、「同じ時間に同じだけ落ちた」ことが見えます。計算は放物運動の式そのもので行っているので、誤差はたまりません。</p>
 
     <div class="ctl">
       <div class="row">
@@ -182,21 +193,6 @@
       </div>
     </div>
 
-    <div class="fire-row">
-      <button class="act" id="btn-fire" type="button">🔥 発射</button>
-      <button class="act sub" id="btn-pause" type="button" disabled>一時停止</button>
-      <button class="act sub" id="btn-step" type="button" disabled>コマ送り</button>
-      <button class="act sub" id="btn-reset" type="button">リセット</button>
-    </div>
-
-    <div id="result" role="status"></div>
-
-    <div class="readouts">
-      <div class="box"><div class="k">到達時間（目安）</div><div class="v" id="r-t">―</div></div>
-      <div class="box"><div class="k">その間の落下量 ½gt²</div><div class="v" id="r-drop">―</div></div>
-      <div class="box"><div class="k">出会う高さ（目安）</div><div class="v" id="r-y">―</div></div>
-    </div>
-    <p class="note">軌跡の印（●）は0.1秒ごとの位置です。ボールとサルの印を結ぶと、「同じ時間に同じだけ落ちた」ことが見えます。計算は放物運動の式そのもので行っているので、誤差はたまりません。</p>
   </section>
 
   <section class="card">
@@ -644,6 +640,9 @@ function fire() {
   $('btn-pause').disabled = false;
   $('btn-step').disabled = false;
   sndFire();
+  // 発射したら実験画面（キャンバス）へ自動でスクロールして、アニメーションを見える位置に運ぶ
+  try { cv.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  catch (e) { try { cv.scrollIntoView(); } catch (e2) {} }
 }
 function updateReadouts(final) {
   const tc = tCross();
@@ -840,6 +839,145 @@ window.__mh = {
     return S.outcome;
   }
 };
+</script>
+<script>
+/* タイトル看板のアニメーション（ボールとサルが同じだけ落ちて出会う、を繰り返し再生） */
+(function () {
+  try {
+    var cv = document.getElementById('titleAnim');
+    if (!cv || !cv.getContext) return;
+    var g = cv.getContext('2d');
+    var W = 960, H = 300;
+    var MUZ = { x: 128, y: 198 };        // 発射口
+    var HANG = { x: 778, y: 138 };       // ぶら下がったサルの中心
+    var DROP = 62;                        // 出会うまでの落下量(px)
+    var LOOP = 5200, FIRE_AT = 900, FLY_MS = 1200;
+    function monkey(x, y, mode, sway) {
+      g.save(); g.translate(x, y);
+      // 尾
+      g.strokeStyle = '#8a5a33'; g.lineWidth = 5; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(-14, 16); g.quadraticCurveTo(-34, 26 + sway * 2, -26, 4 + sway * 3); g.stroke();
+      // 体
+      g.fillStyle = '#8a5a33';
+      g.beginPath(); g.ellipse(0, 12, 19, 23, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#e8c39a';
+      g.beginPath(); g.ellipse(0, 18, 11, 14, 0, 0, Math.PI * 2); g.fill();
+      // 腕
+      g.strokeStyle = '#8a5a33'; g.lineWidth = 6;
+      if (mode === 'hang') {
+        g.beginPath(); g.moveTo(-8, -6); g.quadraticCurveTo(-4, -34, 0, -44); g.stroke();
+        g.beginPath(); g.moveTo(8, -6); g.quadraticCurveTo(6, -30, 2, -42); g.stroke();
+      } else {
+        g.beginPath(); g.moveTo(-10, 0); g.lineTo(-26, -12 + sway * 2); g.stroke();
+        g.beginPath(); g.moveTo(10, 0); g.lineTo(26, -10 - sway * 2); g.stroke();
+      }
+      // 耳と頭
+      g.fillStyle = '#8a5a33';
+      g.beginPath(); g.arc(-17, -26, 7.5, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(17, -26, 7.5, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(0, -24, 17, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#e8c39a';
+      g.beginPath(); g.ellipse(0, -19, 11, 8.5, 0, 0, Math.PI * 2); g.fill();
+      // 目
+      g.fillStyle = '#26221e';
+      g.beginPath(); g.arc(-5.5, -27, 2.1, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.arc(5.5, -27, 2.1, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+    function star(x, y, r) {
+      g.save(); g.translate(x, y); g.fillStyle = '#f5b921';
+      g.beginPath();
+      for (var i = 0; i < 10; i++) {
+        var a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r;
+        g[i ? 'lineTo' : 'moveTo'](Math.cos(a) * rr, Math.sin(a) * rr);
+      }
+      g.closePath(); g.fill(); g.restore();
+    }
+    function banana(x, y, rot) {
+      g.save(); g.translate(x, y); g.rotate(rot);
+      g.strokeStyle = '#f2c41c'; g.lineWidth = 7; g.lineCap = 'round';
+      g.beginPath(); g.arc(0, -4, 11, Math.PI * 0.15, Math.PI * 0.85); g.stroke();
+      g.restore();
+    }
+    function frame(t) {
+      var lt = t % LOOP;
+      // 空と地面
+      var sky = g.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, '#a8d8f0'); sky.addColorStop(0.72, '#dff3fb'); sky.addColorStop(0.721, '#9ed08a'); sky.addColorStop(1, '#7fb069');
+      g.fillStyle = sky; g.fillRect(0, 0, W, H);
+      // 木（右）
+      g.strokeStyle = '#7a5230'; g.lineCap = 'round';
+      g.lineWidth = 17; g.beginPath(); g.moveTo(866, 300); g.quadraticCurveTo(856, 200, 850, 108); g.stroke();
+      g.lineWidth = 11; g.beginPath(); g.moveTo(852, 118); g.quadraticCurveTo(818, 96, HANG.x + 2, 95); g.stroke();
+      g.fillStyle = '#5d9b4a';
+      [[838, 66, 44], [886, 84, 36], [796, 74, 30], [862, 40, 30]].forEach(function (c) {
+        g.beginPath(); g.arc(c[0], c[1], c[2], 0, Math.PI * 2); g.fill();
+      });
+      // 発射台（左下）
+      g.fillStyle = '#5b6670';
+      g.beginPath(); g.moveTo(52, 258); g.lineTo(96, 200); g.lineTo(112, 258); g.closePath(); g.fill();
+      g.save(); g.translate(MUZ.x - 26, MUZ.y + 14); g.rotate(-0.10);
+      g.fillStyle = '#37414a'; g.fillRect(-14, -52, 26, 58);
+      g.fillStyle = '#d64541'; g.beginPath(); g.arc(0, -54, 9, 0, Math.PI * 2); g.fill();
+      g.restore();
+      // 狙いの点線
+      g.strokeStyle = 'rgba(224,123,57,.75)'; g.lineWidth = 3; g.setLineDash([8, 7]);
+      g.beginPath(); g.moveTo(MUZ.x, MUZ.y); g.lineTo(HANG.x, HANG.y); g.stroke();
+      g.setLineDash([]);
+      // タイトル文字
+      g.textBaseline = 'alphabetic';
+      g.font = '700 55px "Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans CJK JP",sans-serif';
+      g.lineWidth = 9; g.strokeStyle = 'rgba(255,255,255,.9)';
+      g.strokeText('モンキーハンティング', 34, 70);
+      g.fillStyle = '#20301c'; g.fillText('モンキーハンティング', 34, 70);
+      g.font = '700 21px "Hiragino Sans","Noto Sans CJK JP",sans-serif';
+      g.fillStyle = '#b3541e'; g.fillText('M O N K E Y   H U N T I N G', 38, 102);
+      g.font = '400 19px "Hiragino Sans","Noto Sans CJK JP",sans-serif';
+      g.fillStyle = '#33502c'; g.fillText('狙ったところに当たるふしぎ ― 弾もサルも、同じだけ落ちる', 38, 130);
+      // 進行
+      var flying = lt >= FIRE_AT && lt < FIRE_AT + FLY_MS;
+      var tau = flying ? (lt - FIRE_AT) / FLY_MS : (lt >= FIRE_AT + FLY_MS ? 1 : 0);
+      var drop = DROP * tau * tau;
+      var mx = HANG.x, my = HANG.y + drop;
+      if (flying) {
+        // 同時刻ドット
+        g.fillStyle = 'rgba(38,34,30,.45)';
+        for (var k = 1; k <= 4; k++) {
+          var tt = k / 5, dd = DROP * tt * tt;
+          g.beginPath(); g.arc(MUZ.x + (HANG.x - MUZ.x) * tt, MUZ.y + (HANG.y - MUZ.y) * tt + dd, 4, 0, Math.PI * 2); g.fill();
+          g.beginPath(); g.arc(HANG.x, HANG.y + dd, 4, 0, Math.PI * 2); g.fill();
+        }
+        // ボール
+        var bx = MUZ.x + (HANG.x - MUZ.x) * tau, by = MUZ.y + (HANG.y - MUZ.y) * tau + drop;
+        g.fillStyle = '#d64541'; g.beginPath(); g.arc(bx, by, 10, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(255,255,255,.65)'; g.beginPath(); g.arc(bx - 3, by - 3, 3.4, 0, Math.PI * 2); g.fill();
+        monkey(mx, my, 'fall', Math.sin(t / 90));
+      } else if (tau === 1) {
+        // 出会ったあと：サルがボールを抱え、バナナを落とす
+        monkey(mx, my, 'fall', 0);
+        g.fillStyle = '#d64541'; g.beginPath(); g.arc(mx - 4, my + 6, 9, 0, Math.PI * 2); g.fill();
+        var bt = Math.min(1, (lt - (FIRE_AT + FLY_MS)) / 900);
+        banana(mx + 26, my + 26 + 120 * bt * bt, bt * 2.4);
+        var sr = 15 + 5 * Math.sin(t / 160);
+        star(mx + 24, my - 26, sr);
+        star(mx - 30, my - 8, sr * 0.6);
+      } else {
+        monkey(mx, my, 'hang', Math.sin(t / 500));
+      }
+      // 木枠の看板らしく、太い縁取りを最後に描く
+      g.strokeStyle = '#7a5230'; g.lineWidth = 12;
+      g.beginPath();
+      if (g.roundRect) g.roundRect(6, 6, W - 12, H - 12, 16); else g.rect(6, 6, W - 12, H - 12);
+      g.stroke();
+      g.fillStyle = '#5d4023';
+      [[26, 26], [W - 26, 26], [26, H - 26], [W - 26, H - 26]].forEach(function (c) {
+        g.beginPath(); g.arc(c[0], c[1], 5, 0, Math.PI * 2); g.fill();
+      });
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  } catch (e) { /* タイトル看板が出なくても本体は動く */ }
+})();
 </script>
 </body>
 </html>
